@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Generated intermediate data (regenerate with pipeline/01_dataset.py)
+data/processed/*.parquet
+data/raw/*.zip
+
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/out/
+web/next-env.d.ts
+web/*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+Thumbs.db
