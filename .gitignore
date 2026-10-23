@@ -17,3 +17,10 @@ web/*.tsbuildinfo
 # OS / editor
 .DS_Store
 Thumbs.db
+
+.vercel
+.env*
+
+# Vercel
+.vercel/
+.env*.local
