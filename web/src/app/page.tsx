@@ -1,128 +1,161 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Lightbulb } from "lucide-react";
 import { loadData } from "@/lib/data";
 import { PageShell } from "@/components/layout/page-shell";
-import { ChartCard, Note, Section, StatCard, StatGrid } from "@/components/blocks";
-import { AreaSeries } from "@/components/charts/series";
-import { CategoryBars } from "@/components/charts/scatter";
-import { Donut } from "@/components/charts/donut";
+import { Note, Section } from "@/components/blocks";
+import { ProcessDiagram } from "@/components/unit-1/process-diagram";
 import { NAV } from "@/components/layout/nav";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AQI_COLORS, WIND_COLORS } from "@/lib/colors";
-import { fmt, fmtInt } from "@/lib/format";
+import { fmt, fmtInt, pct } from "@/lib/format";
 
-type Dataset = { overview: { rows_raw: number; rows_clean: number; rows_dropped: number; pct_dropped: number; start: string; end: string; daily_rows: number }; categorical: { aqi: Array<{ key: string; count: number; pct: number }> } };
-type Viz = { weekly_series: Array<{ date: string; pm25: number }>; wind_bar: Array<{ key: string; label: string; mean_pm25: number; count: number }> };
-type Insights = { executive_summary: string; headline: { mean_pm25: number; median_pm25: number; skew: number; pct_unhealthy: number; r2_full: number; best_daily_model: string; best_daily_rmse: number; naive_daily_rmse: number } };
+/* ------------------------------------------------------------------ only the keys the home page reads */
+type Unit1 = { prep: { rows_raw: number; columns_raw: number; start: string; end: string; train_days: number; test_days: number }; headline: { holdout_mae_train: number; holdout_mae_test: number } };
+type Unit2 = { headline: { mean: number; r_temp: number } };
+type Unit3 = { headline: { f_one: number; f_one_crit: number } };
+type Unit4 = { headline: { two_predictor: { b1: number; r2: number } } };
+type Unit5 = { headline: { recall_without: number; recall_with: number; sandy_lof: number } };
+type Unit6 = { headline: { best_method: string; metrics: Record<string, { MAE: number; MASE: number }>; best_key: string } };
 
-const PIPELINE = [
-  ["Problem", "How much does weather explain PM2.5 in Beijing, and can we flag or forecast severe days?"],
-  ["Data", "UCI Beijing PM2.5: 43,824 hourly rows, 2010–2014, one monitor + airport weather."],
-  ["Clean & engineer", "Parse time, drop missing target, add season, EPA category, log target, daily/monthly tables."],
-  ["Explore", "Descriptive statistics, distributions, correlation, group tabulation."],
-  ["Infer", "Normal/Poisson/Binomial fits, CLT, confidence intervals, z/t/ANOVA/χ² tests, power."],
-  ["Model", "Simple & multiple regression, validation (hold-out, k-fold, LOOCV, bootstrap)."],
-  ["Detect & forecast", "Z-score, IQR, Mahalanobis, LOF, Isolation Forest, SMOTE; decomposition, ARIMA, Holt-Winters."],
-  ["Communicate", "Findings, limitations and recommendations."],
+/** Syllabus title and sub-sections of each unit, in syllabus order. The numbers come from the JSON. */
+const UNITS: Array<{ n: number; href: string; title: string; hours: number; sections: string[] }> = [
+  { n: 1, href: "/unit-1", title: "Introduction to Data Science", hours: 4, sections: ["1.1 Data Science Process", "1.2 Volume, dimensions, complexity", "1.3 Data preparation", "1.4 Cross validation, k-fold, leave-1 out, bootstrapping", "1.5 Data science vs analytics", "1.6 Applications"] },
+  { n: 2, href: "/unit-2", title: "Data exploration using descriptive statistics", hours: 12, sections: ["2.1 Types and properties of data", "2.2 Classification, tabulation, diagrams, graphs", "2.3 Univariate exploration", "2.4 Multivariate exploration", "2.5 Data visualization"] },
+  { n: 3, href: "/unit-3", title: "Data exploration using inferential statistics", hours: 6, sections: ["Normal, Poisson", "Central limit theorem", "Confidence interval", "Hypothesis testing", "Type-I, Type-II errors", "Z-test, t-test", "ANOVA"] },
+  { n: 4, href: "/unit-4", title: "Regression analysis", hours: 10, sections: ["4.1 Intercept and slope", "4.2 Error term, R², MAE, MAPE", "4.3 Multiple linear regression", "4.4 Partial coefficients", "4.5 Overall fit (F-test)", "4.6 Individual coefficients (t-test)"] },
+  { n: 5, href: "/unit-5", title: "Anomaly detection", hours: 6, sections: ["5.1 Outliers and causes", "5.2 Techniques", "5.3 Statistical", "5.4 Distance-based", "5.5 Density-based (LOF)", "5.6 SMOTE"] },
+  { n: 6, href: "/unit-6", title: "Time series forecasting", hours: 5, sections: ["6.1 Taxonomy, decomposition", "6.2 Average, moving average, regression, ARIMA", "6.3 MAE, RMSE, MAPE, MASE"] },
 ];
 
 export default async function Home() {
-  const [ds, viz, ins] = await Promise.all([loadData<Dataset>("dataset"), loadData<Viz>("visualization"), loadData<Insights>("insights")]);
-  const h = ins.headline;
+  const [u1, u2, u3, u4, u5, u6] = await Promise.all([
+    loadData<Unit1>("unit1"),
+    loadData<Unit2>("unit2"),
+    loadData<Unit3>("unit3"),
+    loadData<Unit4>("unit4"),
+    loadData<Unit5>("unit5"),
+    loadData<Unit6>("unit6"),
+  ]);
+  const p = u1.prep;
+  const best6 = u6.headline.metrics[u6.headline.best_key];
+
+  /** One headline number per unit, read from the unit JSON. */
+  const headline: Record<number, { value: string; label: string }> = {
+    1: { value: `${fmtInt(p.train_days)} / ${fmtInt(p.test_days)}`, label: "training / test days (chronological hold-out)" },
+    2: { value: fmt(u2.headline.r_temp, 2), label: "Karl Pearson's r, temperature vs rentals" },
+    3: { value: `F = ${fmt(u3.headline.f_one, 1)} vs ${fmt(u3.headline.f_one_crit, 2)}`, label: "one-way ANOVA by season: H₀ rejected" },
+    4: { value: `+${fmtInt(u4.headline.two_predictor.b1)} per °C`, label: `holding humidity constant; R² = ${fmt(u4.headline.two_predictor.r2, 2)}` },
+    5: { value: `${pct(u5.headline.recall_without, 0)} → ${pct(u5.headline.recall_with, 0)}`, label: "recall of high-demand days without → with SMOTE" },
+    6: { value: `MAE ${fmtInt(best6.MAE)}`, label: `${u6.headline.best_method} on the test months` },
+  };
+  const navByHref = Object.fromEntries(NAV.flatMap((g) => g.items).map((i) => [i.href, i]));
+
   return (
     <PageShell
-      title="Dashboard"
-      description="An end-to-end Applied Data Science study of hourly PM2.5 air pollution in Beijing (2010–2014). Every syllabus module is applied to the same dataset: from cleaning and descriptive statistics through hypothesis testing, regression and validation to anomaly detection, time-series decomposition and forecasting."
-      concepts={["Data science process", "Problem statement", "Dataset overview"]}
+      title="Applied Data Science on Capital Bikeshare"
+      description={`One question runs through the whole site: can we describe, explain and forecast the number of bikes rented per day in Washington DC from the weather and the calendar? The data are the UCI Bike Sharing Dataset (id 275): ${fmtInt(p.rows_raw)} days, ${p.columns_raw} columns, ${p.start} to ${p.end}. Each page is one unit of the Applied Data Science syllabus, in syllabus order, applied to this one dataset; the conclusion collects the knowledge and the actions.`}
+      concepts={["Six syllabus units", "One dataset", "Python computes, the site shows", "Nothing typed in"]}
     >
-      <StatGrid cols={6}>
-        <StatCard label="Valid hourly readings" value={fmtInt(ds.overview.rows_clean)} hint={`${ds.overview.start} → ${ds.overview.end}`} />
-        <StatCard label="Mean PM2.5" value={`${fmt(h.mean_pm25, 0)} µg/m³`} hint="WHO 24-h guideline: 15" tone="bad" />
-        <StatCard label="Median PM2.5" value={`${fmt(h.median_pm25, 0)} µg/m³`} hint={`skewness ${fmt(h.skew, 2)}`} />
-        <StatCard label="Hours above 150 µg/m³" value={`${fmt(h.pct_unhealthy, 1)}%`} hint="Unhealthy or worse" tone="warn" />
-        <StatCard label="Weather-only R²" value={fmt(h.r2_full, 3)} hint="OLS, hourly" />
-        <StatCard label="Best daily forecast" value={`RMSE ${fmt(h.best_daily_rmse, 0)}`} hint={`naive: ${fmt(h.naive_daily_rmse, 0)} · ${h.best_daily_model}`} tone="good" />
-      </StatGrid>
-
-      <Section title="Problem statement" subtitle="What the study tries to answer and why the dataset suits every module of the course.">
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="shadow-none lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-base">Executive summary</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm leading-relaxed text-muted-foreground">{ins.executive_summary}</CardContent>
-          </Card>
-          <Card className="shadow-none">
-            <CardHeader>
-              <CardTitle className="text-base">Research questions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ol className="list-decimal space-y-2 pl-4 text-sm text-muted-foreground">
-                <li>How is PM2.5 distributed and how does it vary by season, wind and hour?</li>
-                <li>Which weather variables are associated with pollution, and how strongly?</li>
-                <li>Are the differences between groups (season, weekend, year) statistically significant?</li>
-                <li>How much variance can a regression on weather explain, and does it generalise?</li>
-                <li>Which days are anomalous, and can severe days be classified despite class imbalance?</li>
-                <li>Is the series stationary, what are its components, and how well can it be forecast?</li>
-              </ol>
-            </CardContent>
-          </Card>
-        </div>
+      {/* ------------------------------------------------------------ the process with the units placed on it */}
+      <Section title="The Data Science Process" subtitle="The five stages as drawn in class (Unit 1.1), with each unit of this project placed on the stage it belongs to. The sidebar follows the same order.">
+        <ProcessDiagram />
       </Section>
 
-      <Section title="Data science process" subtitle="The pipeline that produced every number on this site. Python computes, Next.js presents.">
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          {PIPELINE.map(([step, text], i) => (
-            <Card key={step} className="gap-2 py-4 shadow-none">
-              <CardHeader className="px-4 pb-0">
-                <CardDescription className="font-mono text-[11px]">STEP {i + 1}</CardDescription>
-                <CardTitle className="text-sm">{step}</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 text-xs leading-relaxed text-muted-foreground">{text}</CardContent>
-            </Card>
-          ))}
-        </div>
+      {/* ------------------------------------------------------------ how to read */}
+      <Section title="How to read this site">
+        <Card className="shadow-none">
+          <CardContent className="grid gap-4 text-sm leading-relaxed md:grid-cols-2">
+            <div className="space-y-1">
+              <div className="font-medium">Every section carries its syllabus number</div>
+              <p className="text-muted-foreground">
+                A heading such as{" "}
+                <Badge variant="secondary" className="rounded-md font-mono text-[11px]">
+                  2.3
+                </Badge>{" "}
+                Univariate exploration means exactly syllabus line 2.3 and nothing outside it.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <div className="font-medium">Every section has the same five beats</div>
+              <p className="text-muted-foreground">What it is → Formula → Worked on our data → Result → Interpretation. The worked table shows the intermediate columns the way the class examples do; the result is boxed; the interpretation is one sentence in the class phrasing.</p>
+            </div>
+            <div className="space-y-1">
+              <div className="font-medium">Amber boxes reproduce the class examples</div>
+              <p className="text-muted-foreground">A box titled &ldquo;Check against the class example&rdquo; runs the toy data from the slides through the same code as the bike data and prints the slide&apos;s numbers next to ours.</p>
+            </div>
+            <div className="space-y-1">
+              <div className="font-medium">
+                <Badge variant="outline" className="mr-1 rounded-md border-amber-300 bg-amber-50 text-[11px] font-normal text-amber-800">
+                  Self-learning topic
+                </Badge>
+                marks optional material
+              </div>
+              <p className="text-muted-foreground">Those sections come from the syllabus self-learning lines, not from class, and are kept short.</p>
+            </div>
+          </CardContent>
+        </Card>
       </Section>
 
-      <Section title="Dataset at a glance">
-        <div className="grid gap-4 lg:grid-cols-3">
-          <ChartCard title="Weekly mean PM2.5, 2010–2014" description="Five winters, five summers. Spikes are multi-day smog episodes; January 2013 is the worst on record." className="lg:col-span-2">
-            <AreaSeries data={viz.weekly_series} xKey="date" series={[{ key: "pm25", label: "PM2.5 (µg/m³)", color: "#2563eb" }]} xFormat="monthYearShort" height={260} xTicks={10} />
-          </ChartCard>
-          <ChartCard title="Share of hours by EPA category" description="Based on US EPA PM2.5 breakpoints applied to hourly values.">
-            <Donut data={ds.categorical.aqi} nameKey="key" valueKey="count" colors={AQI_COLORS} height={260} />
-          </ChartCard>
-        </div>
-        <ChartCard title="Mean PM2.5 by wind direction" description="Wind is the single clearest driver: north-westerly flow from Mongolia clears the air, calm or south-easterly air traps it over the city.">
-          <CategoryBars data={viz.wind_bar} xKey="label" yKey="mean_pm25" colors={WIND_COLORS} colorKey="key" yLabel="µg/m³" height={220} refY={75} refLabel="national 24-h limit" />
-        </ChartCard>
-      </Section>
-
-      <Section title="Modules" subtitle="Each page applies one part of the syllabus to the dataset, shows the formulas, the computed numbers and the charts.">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {NAV.flatMap((g) => g.items)
-            .filter((i) => i.href !== "/")
-            .map((item) => (
-              <Link key={item.href} href={item.href} className="group">
-                <Card className="h-full gap-1 py-4 shadow-none transition-colors group-hover:bg-muted/40">
-                  <CardHeader className="flex flex-row items-center gap-3 px-4 pb-0">
-                    <span className="flex size-8 items-center justify-center rounded-md border bg-background">
-                      <item.icon className="size-4" />
-                    </span>
-                    <div>
-                      <CardDescription className="font-mono text-[10px]">MODULE {item.module}</CardDescription>
-                      <CardTitle className="text-sm">{item.name}</CardTitle>
+      {/* ------------------------------------------------------------ one card per unit */}
+      <Section title="The six units" subtitle="Syllabus order. Each card lists the sub-sections the page covers and one headline number read from that unit's results.">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {UNITS.map((u) => {
+            const nav = navByHref[u.href];
+            const h = headline[u.n];
+            return (
+              <Link key={u.href} href={u.href} className="group">
+                <Card className="h-full gap-3 py-4 shadow-none transition-colors group-hover:bg-muted/40">
+                  <CardHeader className="flex flex-row items-start gap-3 px-4 pb-0">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background">{nav ? <nav.icon className="size-4" /> : null}</span>
+                    <div className="min-w-0 space-y-0.5">
+                      <CardDescription className="font-mono text-[10px]">
+                        UNIT {u.n} · {u.hours} HRS
+                      </CardDescription>
+                      <CardTitle className="text-sm leading-snug">{u.title}</CardTitle>
                     </div>
-                    <ArrowRight className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                    <ArrowRight className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </CardHeader>
+                  <CardContent className="space-y-3 px-4">
+                    <div className="flex flex-wrap gap-1">
+                      {u.sections.map((s) => (
+                        <Badge key={s} variant="outline" className="rounded-md text-[10px] font-normal">
+                          {s}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="rounded-md border-2 border-foreground/80 bg-background px-3 py-2">
+                      <div className="font-mono text-base font-semibold tabular-nums">{h.value}</div>
+                      <div className="text-[11px] text-muted-foreground">{h.label}</div>
+                    </div>
+                  </CardContent>
                 </Card>
               </Link>
-            ))}
+            );
+          })}
+
+          {/* conclusion card */}
+          <Link href="/conclusion" className="group">
+            <Card className="h-full gap-3 border-emerald-200 bg-emerald-50/40 py-4 shadow-none transition-colors group-hover:bg-emerald-50">
+              <CardHeader className="flex flex-row items-start gap-3 px-4 pb-0">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background">
+                  <Lightbulb className="size-4" />
+                </span>
+                <div className="min-w-0 space-y-0.5">
+                  <CardDescription className="font-mono text-[10px]">STAGE 5 · KNOWLEDGE</CardDescription>
+                  <CardTitle className="text-sm leading-snug">Conclusion: knowledge and actions</CardTitle>
+                </div>
+                <ArrowRight className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </CardHeader>
+              <CardContent className="px-4 text-sm leading-relaxed text-muted-foreground">
+                One paragraph per unit with its headline numbers, what a bike-share operator would do with each finding, the limitations, and the course conclusion. Hold-out MAE on the test period: {fmtInt(u1.headline.holdout_mae_test)} rentals vs {fmtInt(u1.headline.holdout_mae_train)} on the training days.
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </Section>
 
-      <Note tone="info" title="How to read the site">
-        Every analysis page follows the same order: the concept and formula, the computed result on this dataset, a chart, and a one-line interpretation. Values marked p are two-sided p-values unless stated; the significance level is α = 0.05 throughout.
+      <Note tone="info" title="Where the numbers come from">
+        Python scripts in <code className="font-mono text-xs">pipeline/</code> compute every statistic and write one JSON file per unit; the pages read that JSON and show it. The mean of {fmtInt(u2.headline.mean)} rentals per day on this page, for example, is read from <code className="font-mono text-xs">unit2.json</code>. Re-running the pipeline regenerates the whole site.
       </Note>
     </PageShell>
   );

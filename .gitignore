@@ -24,3 +24,6 @@ Thumbs.db
 # Vercel
 .vercel/
 .env*.local
+
+# local tool config
+.claude/

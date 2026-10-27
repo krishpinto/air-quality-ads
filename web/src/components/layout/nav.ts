@@ -3,51 +3,45 @@ import {
   BarChart3,
   Calculator,
   Clock,
-  Database,
-  Grid3X3,
-  LayoutDashboard,
+  Compass,
   Lightbulb,
-  LineChart,
-  ShieldCheck,
-  Target,
+  LayoutDashboard,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 
-export type NavItem = { name: string; href: string; icon: LucideIcon; module: string };
+export type NavItem = { name: string; href: string; icon: LucideIcon; module: string; stage: string };
 
+/**
+ * One entry per syllabus unit, grouped by the stage of the Data Science Process
+ * (Unit 1) that the unit belongs to. The order is the syllabus order.
+ */
 export const NAV: Array<{ title: string; items: NavItem[] }> = [
   {
-    title: "Overview",
-    items: [{ name: "Dashboard", href: "/", icon: LayoutDashboard, module: "" }],
+    title: "Start here",
+    items: [{ name: "The pipeline", href: "/", icon: LayoutDashboard, module: "", stage: "" }],
   },
   {
-    title: "Data exploration",
+    title: "1 · Prior knowledge & preparation",
+    items: [{ name: "Unit 1 · Introduction & process", href: "/unit-1", icon: Compass, module: "1", stage: "Prior knowledge → Preparation" }],
+  },
+  {
+    title: "2 · Exploration",
     items: [
-      { name: "Dataset", href: "/dataset", icon: Database, module: "1" },
-      { name: "Descriptive statistics", href: "/descriptive", icon: BarChart3, module: "2" },
-      { name: "Visualization", href: "/visualization", icon: LineChart, module: "3" },
-      { name: "Correlation", href: "/correlation", icon: Grid3X3, module: "4" },
+      { name: "Unit 2 · Descriptive statistics", href: "/unit-2", icon: BarChart3, module: "2", stage: "Preparation: explore" },
+      { name: "Unit 3 · Inferential statistics", href: "/unit-3", icon: Calculator, module: "3", stage: "Preparation: infer" },
     ],
   },
   {
-    title: "Statistical analysis",
+    title: "3 · Modeling",
     items: [
-      { name: "Probability & inference", href: "/inference", icon: Calculator, module: "5" },
-      { name: "Regression", href: "/regression", icon: TrendingUp, module: "6" },
-      { name: "Model validation", href: "/validation", icon: ShieldCheck, module: "7" },
+      { name: "Unit 4 · Regression", href: "/unit-4", icon: TrendingUp, module: "4", stage: "Modeling" },
+      { name: "Unit 5 · Anomaly detection", href: "/unit-5", icon: AlertTriangle, module: "5", stage: "Modeling" },
+      { name: "Unit 6 · Time series forecasting", href: "/unit-6", icon: Clock, module: "6", stage: "Modeling → Application" },
     ],
   },
   {
-    title: "Advanced analytics",
-    items: [
-      { name: "Anomaly detection", href: "/anomaly", icon: AlertTriangle, module: "8" },
-      { name: "Time series", href: "/timeseries", icon: Clock, module: "9" },
-      { name: "Forecasting", href: "/forecasting", icon: Target, module: "10" },
-    ],
-  },
-  {
-    title: "Results",
-    items: [{ name: "Insights", href: "/insights", icon: Lightbulb, module: "11" }],
+    title: "4 · Knowledge",
+    items: [{ name: "Conclusion", href: "/conclusion", icon: Lightbulb, module: "", stage: "Knowledge and actions" }],
   },
 ];

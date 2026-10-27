@@ -5,7 +5,13 @@ import { Slider } from "@/components/ui/slider";
 import { Histogram } from "@/components/charts/series";
 import { KV } from "@/components/blocks";
 
-/** Deterministic PRNG so the simulation is reproducible for a given seed. */
+/**
+ * Unit 3.2 — the teacher's CLT demo, interactive: draw many samples of size n from the population of
+ * 731 daily rental counts, average each, and watch the histogram of the averages turn bell-shaped
+ * with spread σ/√n. Everything shown is computed in the browser from the population passed in.
+ */
+
+/** Deterministic PRNG so the same seed always gives the same picture. */
 function mulberry32(seed: number) {
   return () => {
     seed |= 0;
@@ -16,29 +22,28 @@ function mulberry32(seed: number) {
   };
 }
 
-function stats(a: number[]) {
+/** Mean and σ (÷N, the class formula) of a list of numbers. */
+function meanSd(a: number[]) {
   const n = a.length;
   const mean = a.reduce((s, v) => s + v, 0) / n;
-  const m2 = a.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
-  const m3 = a.reduce((s, v) => s + (v - mean) ** 3, 0) / n;
-  const m4 = a.reduce((s, v) => s + (v - mean) ** 4, 0) / n;
-  return { mean, sd: Math.sqrt((m2 * n) / (n - 1)), skew: m3 / m2 ** 1.5, kurt: m4 / m2 ** 2 - 3 };
+  const sd = Math.sqrt(a.reduce((s, v) => s + (v - mean) ** 2, 0) / n);
+  return { mean, sd };
 }
 
-function histogram(values: number[], bins = 35, mu: number, se: number) {
+function histogram(values: number[], bins: number, mu: number, se: number) {
   const lo = Math.min(...values), hi = Math.max(...values);
   const w = (hi - lo) / bins || 1;
   const counts = new Array(bins).fill(0);
   for (const v of values) counts[Math.min(bins - 1, Math.floor((v - lo) / w))]++;
   return counts.map((c, i) => {
     const mid = lo + (i + 0.5) * w;
-    return { mid: Number(mid.toFixed(2)), count: c, density: c / (values.length * w), normal: Math.exp(-0.5 * ((mid - mu) / se) ** 2) / (se * Math.sqrt(2 * Math.PI)) };
+    return { mid: Math.round(mid), count: c, density: c / (values.length * w), normal: Math.exp(-0.5 * ((mid - mu) / se) ** 2) / (se * Math.sqrt(2 * Math.PI)) };
   });
 }
 
 export function CltSimulator({ population, mu, sigma }: { population: number[]; mu: number; sigma: number }) {
   const [n, setN] = useState(30);
-  const [draws, setDraws] = useState(1000);
+  const [draws, setDraws] = useState(2000);
   const [seed, setSeed] = useState(1);
 
   const { bins, s, se } = useMemo(() => {
@@ -50,7 +55,7 @@ export function CltSimulator({ population, mu, sigma }: { population: number[]; 
       means.push(sum / n);
     }
     const se = sigma / Math.sqrt(n);
-    return { bins: histogram(means, 35, mu, se), s: stats(means), se };
+    return { bins: histogram(means, 35, mu, se), s: meanSd(means), se };
   }, [n, draws, seed, population, mu, sigma]);
 
   return (
@@ -65,10 +70,10 @@ export function CltSimulator({ population, mu, sigma }: { population: number[]; 
         </div>
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Number of samples (draws)</span>
+            <span className="text-muted-foreground">Number of samples drawn</span>
             <span className="font-medium tabular-nums">{draws}</span>
           </div>
-          <Slider min={100} max={5000} step={100} value={[draws]} onValueChange={(v) => setDraws(v[0])} />
+          <Slider min={100} max={10000} step={100} value={[draws]} onValueChange={(v) => setDraws(v[0])} />
         </div>
         <button type="button" onClick={() => setSeed((x) => x + 1)} className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted">
           Re-draw (seed {seed})
@@ -76,20 +81,18 @@ export function CltSimulator({ population, mu, sigma }: { population: number[]; 
         <KV
           cols={1}
           items={[
-            ["Population mean μ", mu.toFixed(2)],
-            ["Population σ", sigma.toFixed(2)],
-            ["Mean of sample means", s.mean.toFixed(2)],
-            ["SD of sample means (observed)", s.sd.toFixed(2)],
-            ["σ / √n (theory)", se.toFixed(2)],
-            ["Skewness of the means", s.skew.toFixed(3)],
-            ["Excess kurtosis of the means", s.kurt.toFixed(3)],
+            ["Population mean μ", mu.toFixed(1)],
+            ["Population σ", sigma.toFixed(1)],
+            ["Mean of the sample means", s.mean.toFixed(1)],
+            ["SD of the sample means (observed)", s.sd.toFixed(1)],
+            ["σ / √n (standard error, theory)", se.toFixed(1)],
           ]}
         />
       </div>
       <div className="space-y-2">
-        <Histogram bins={bins} height={300} label="Sample means" color="#7c3aed" xFormat="int" />
+        <Histogram bins={bins} height={300} label="Sample means x̄" color="#7c3aed" xFormat="int" />
         <p className="text-xs text-muted-foreground">
-          Histogram of {draws} sample means, each from n = {n} hours drawn with replacement from 4,000 real PM2.5 readings. Red curve: N(μ, σ²/n). Drag n up and watch the skew vanish and the spread shrink like 1/√n.
+          Histogram of {draws} sample means, each the average of n = {n} days drawn with replacement from the {population.length} daily rental counts. Red curve: the normal curve with mean μ and standard error σ/√n. Move n past 30 and the shape is bell-shaped; keep raising n and the spread shrinks like 1/√n.
         </p>
       </div>
     </div>
