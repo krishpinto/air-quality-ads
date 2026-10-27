@@ -10,8 +10,8 @@ const geistSans = Geist({ variable: "--font-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AirStat · Beijing PM2.5 Applied Data Science",
-  description: "Applied Data Science project: descriptive, inferential, regression, validation, anomaly, time-series and forecasting analysis of Beijing PM2.5 (2010-2014).",
+  title: "Applied Data Science · Capital Bikeshare",
+  description: "Applied Data Science course project on the UCI Bike Sharing dataset: the six syllabus units (introduction and process, descriptive statistics, inferential statistics, regression, anomaly detection, time series forecasting) applied to 731 days of Washington DC bike rentals.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

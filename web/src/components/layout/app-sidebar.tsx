@@ -27,8 +27,8 @@ export function AppSidebar() {
             <Wind className="size-4" />
           </span>
           <span className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-semibold">AirStat</span>
-            <span className="text-[11px] text-muted-foreground">Beijing PM2.5 · ADS project</span>
+            <span className="text-sm font-semibold">Applied Data Science</span>
+            <span className="text-[11px] text-muted-foreground">Capital Bikeshare · 6 units</span>
           </span>
         </Link>
       </SidebarHeader>
@@ -64,7 +64,7 @@ export function AppSidebar() {
       <SidebarFooter className="px-3 py-3 text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden">
         <div className="flex items-center gap-1.5">
           <Activity className="size-3" />
-          UCI Beijing PM2.5 · 2010–2014
+          UCI Bike Sharing (id 275) · 2011–2012
         </div>
       </SidebarFooter>
     </Sidebar>
